@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v8 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v9 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
@@ -27,7 +27,7 @@ TUN_LOG="$LOG_DIR/termux-mcp-tunnel.log"
 # --- 0. base do Termux (aparelho zerado não tem curl nem índice de pacotes) --
 log "Atualizando Termux e instalando dependências básicas..."
 pkg update -y || warn "pkg update falhou — continuando mesmo assim"
-pkg install -y curl procps || die "pkg install curl falhou"
+pkg install -y curl procps cloudflared termux-api || warn "algum pacote falhou — continuando"
 
 # --- 0.1 limpeza de resíduos de pastes que grudaram linhas ------------------
 log "Limpando resíduos de comandos grudados..."
