@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v5 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v6 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
@@ -15,7 +15,7 @@ die()  { printf '\033[1;31m[fix]\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ -n "${PREFIX:-}" ] || die "Rode dentro do Termux (\$PREFIX vazio)."
 
-BIN_URL="https://litter.catbox.moe/kz1akl"
+BIN_URL="https://litter.catbox.moe/8c5w3q"
 CFG_URL="https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/config.example.yaml"
 CFG_DIR="$PREFIX/var/lib/termux-mcp"
 CFG="$CFG_DIR/config.yaml"
@@ -59,6 +59,7 @@ pkill -f 'termux-mcp tunnel' 2>/dev/null || true
 sleep 1
 
 log "Subindo servidor HTTP em background (127.0.0.1:3000)..."
+: > "$SRV_LOG"; : > "$TUN_LOG"
 nohup "$PREFIX/bin/termux-mcp" serve http --config "$CFG" </dev/null >>"$SRV_LOG" 2>&1 &
 sleep 2
 if grep -q 'http server listening' "$SRV_LOG" 2>/dev/null; then
@@ -73,7 +74,7 @@ nohup "$PREFIX/bin/termux-mcp" tunnel start --config "$CFG" </dev/null >>"$TUN_L
 URL=""
 for i in $(seq 1 15); do
   sleep 2
-  URL="$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TUN_LOG" 2>/dev/null | head -1 || true)"
+  URL="$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TUN_LOG" 2>/dev/null | tail -1 || true)"
   [ -n "$URL" ] && break
 done
 
