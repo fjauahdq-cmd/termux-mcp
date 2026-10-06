@@ -24,6 +24,25 @@ type Kit struct {
 	Tasks *tasks.Manager // background task manager (tasks module)
 }
 
+// ShotsDir é a pasta pública das screenshots, servida por HTTP em /shots/.
+const ShotsDir = "/sdcard/termux-mcp-shots"
+
+type ctxKey string
+
+const publicHostKey ctxKey = "public-host"
+
+// SetPublicHost injeta o Host da requisição HTTP atual no contexto
+// (usado pelo servidor HTTP para montar URLs públicas via tunnel).
+func SetPublicHost(ctx context.Context, host string) context.Context {
+	return context.WithValue(ctx, publicHostKey, host)
+}
+
+// PublicHost retorna o Host da requisição HTTP atual (vazio em stdio).
+func PublicHost(ctx context.Context) string {
+	h, _ := ctx.Value(publicHostKey).(string)
+	return h
+}
+
 // Run executes a command with the configured defaults (timeout, output cap).
 func (k *Kit) Run(ctx context.Context, name string, args []string, timeout time.Duration) (*exec.Result, error) {
 	if timeout <= 0 {
