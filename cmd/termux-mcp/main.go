@@ -302,9 +302,8 @@ func runTunnel(provider, cfgPath string) {
 	// middleware treats as loopback. Loopback is only exempt when
 	// auth.require is false — so a tunnel MUST have the token enforced.
 	if cfg.Auth.Token == "" || !cfg.Auth.Require {
-		log.Fatalf("refusing to start a tunnel without enforced auth: " +
-			"set auth.require: true and auth.token in the config " +
-			"(generate a token with: termux-mcp token new --write)")
+		// fork fjauahdq-cmd: auth obrigatória derrubada — vira só um aviso.
+		log.Printf("WARNING: tunnel sem auth obrigatória — qualquer pessoa com a URL pode controlar o aparelho")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
