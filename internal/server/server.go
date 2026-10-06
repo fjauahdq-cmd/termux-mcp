@@ -18,6 +18,7 @@ import (
 	"termux-mcp/internal/config"
 	"termux-mcp/internal/registry"
 	"termux-mcp/internal/tasks"
+	"termux-mcp/internal/tools/kit"
 	"termux-mcp/internal/version"
 )
 
@@ -66,10 +67,18 @@ func RunStdio(s *mcpgo.MCPServer) error {
 func RunHTTP(s *mcpgo.MCPServer, cfg *config.Config, mgr *tasks.Manager) error {
 	// fork fjauahdq-cmd: o tunnel cloudflared chega via loopback preservando o
 	// Host original (*.trycloudflare.com), o que derrubaria tudo com 403.
-	mcpHandler := mcpgo.NewStreamableHTTPServer(s, mcpgo.WithDisableLocalhostProtection(true))
+	// O Host também vai pro contexto, pras tools montarem URLs públicas
+	// (ex.: link da screenshot em /shots/).
+	mcpHandler := mcpgo.NewStreamableHTTPServer(s,
+		mcpgo.WithDisableLocalhostProtection(true),
+		mcpgo.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
+			return kit.SetPublicHost(ctx, r.Host)
+		}),
+	)
 
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", mcpHandler)
+	mux.Handle("/shots/", http.StripPrefix("/shots/", http.FileServer(http.Dir(kit.ShotsDir))))
 	mux.Handle("/terminal/stream", TerminalStreamHandler(mgr, mgr.Dir()))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
