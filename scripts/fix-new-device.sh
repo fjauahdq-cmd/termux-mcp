@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v4 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v5 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
@@ -15,7 +15,7 @@ die()  { printf '\033[1;31m[fix]\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ -n "${PREFIX:-}" ] || die "Rode dentro do Termux (\$PREFIX vazio)."
 
-BIN_URL="https://litter.catbox.moe/dmopg9"
+BIN_URL="https://litter.catbox.moe/kz1akl"
 CFG_URL="https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/config.example.yaml"
 CFG_DIR="$PREFIX/var/lib/termux-mcp"
 CFG="$CFG_DIR/config.yaml"
