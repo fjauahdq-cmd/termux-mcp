@@ -64,7 +64,9 @@ func RunStdio(s *mcpgo.MCPServer) error {
 
 // RunHTTP serves MCP over Streamable HTTP behind auth and logging middleware.
 func RunHTTP(s *mcpgo.MCPServer, cfg *config.Config, mgr *tasks.Manager) error {
-	mcpHandler := mcpgo.NewStreamableHTTPServer(s)
+	// fork fjauahdq-cmd: o tunnel cloudflared chega via loopback preservando o
+	// Host original (*.trycloudflare.com), o que derrubaria tudo com 403.
+	mcpHandler := mcpgo.NewStreamableHTTPServer(s, mcpgo.WithDisableLocalhostProtection(true))
 
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", mcpHandler)
