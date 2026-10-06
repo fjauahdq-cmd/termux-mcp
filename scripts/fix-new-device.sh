@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v6 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v7 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
@@ -15,7 +15,8 @@ die()  { printf '\033[1;31m[fix]\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ -n "${PREFIX:-}" ] || die "Rode dentro do Termux (\$PREFIX vazio)."
 
-BIN_URL="https://litter.catbox.moe/8c5w3q"
+BIN_URL="https://github.com/fjauahdq-cmd/termux-mcp/releases/latest/download/termux-mcp-android-arm64"
+BIN_FALLBACK="https://litter.catbox.moe/8c5w3q"
 CFG_URL="https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/config.example.yaml"
 CFG_DIR="$PREFIX/var/lib/termux-mcp"
 CFG="$CFG_DIR/config.yaml"
@@ -33,7 +34,8 @@ fi
 
 # --- 1. binário --------------------------------------------------------------
 log "Baixando binário termux-mcp (android arm64, patch fixArgv + tools root)..."
-curl -fsSL "$BIN_URL" -o "$PREFIX/bin/termux-mcp" || die "download falhou (link temporário expirado?) — avise no chat"
+curl -fsSL "$BIN_URL" -o "$PREFIX/bin/termux-mcp" || \
+  { warn "release não encontrada, usando fallback temporário..."; curl -fsSL "$BIN_FALLBACK" -o "$PREFIX/bin/termux-mcp"; } || die "download falhou — avise no chat"
 chmod +x "$PREFIX/bin/termux-mcp"
 "$PREFIX/bin/termux-mcp" version || die "binário não executou"
 
