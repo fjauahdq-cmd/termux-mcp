@@ -48,6 +48,17 @@ mesmo toque às cegas: re-leia a tela em 1280 e recalcule.
   `su -c "wm dismiss-keyguard"` via `execute_command` wait=true.
 - **Barra de notificações aberta atrapalha toques** → feche com keyevent 4.
 
+## Screenshot SEM base64 — modo URL (/shots/)
+
+Toda screenshot também é salva em `/sdcard/termux-mcp-shots/latest.jpg` (ou
+`.png`) e, em modo HTTP/tunnel, o TEXTO do resultado inclui
+`| url: https://HOST/shots/latest.jpg`.
+
+**Se o seu cliente não renderiza imagem inline (ImageContent/base64):** ignore o
+campo de dados e USE A URL — abra/baixe a URL como faria com qualquer imagem da
+web. Nunca cole o base64 no contexto. O arquivo é servido pelo próprio servidor
+enquanto ele estiver no ar; `latest` é sempre a captura mais recente.
+
 ## Tools e quando usar
 
 | Tool | Uso |
