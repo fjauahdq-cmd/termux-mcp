@@ -1,9 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v10 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v11 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
 #   * kill robusto de instâncias antigas + health check de verdade
+#   * tela não apaga por 10 min durante a automação
 #   * URL pública impressa no final
 #
 # Uso (uma linha só, dentro do Termux):
@@ -101,6 +102,9 @@ for i in $(seq 1 15); do
   URL="$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TUN_LOG" 2>/dev/null | tail -1 || true)"
   [ -n "$URL" ] && break
 done
+
+# --- 4.5 evita a tela apagar no meio da automação (10 min) -------------------
+su -c "settings put system screen_off_timeout 600000" 2>/dev/null || true
 
 # --- 5. doctor ---------------------------------------------------------------
 log "Diagnóstico do ambiente:"
