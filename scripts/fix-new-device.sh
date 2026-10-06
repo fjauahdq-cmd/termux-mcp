@@ -1,10 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v11 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v12 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
 #   * kill robusto de instâncias antigas + health check de verdade
 #   * tela não apaga por 10 min durante a automação
+#   * binário baixado do próprio repo (sem link temporário!)
 #   * URL pública impressa no final
 #
 # Uso (uma linha só, dentro do Termux):
@@ -18,7 +19,6 @@ die()  { printf '\033[1;31m[fix]\033[0m %s\n' "$*" >&2; exit 1; }
 [ -n "${PREFIX:-}" ] || die "Rode dentro do Termux (\$PREFIX vazio)."
 
 BIN_URL="https://github.com/fjauahdq-cmd/termux-mcp/releases/latest/download/termux-mcp-android-arm64"
-BIN_FALLBACK="https://litter.catbox.moe/8c5w3q"
 CFG_URL="https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/config.example.yaml"
 CFG_DIR="$PREFIX/var/lib/termux-mcp"
 CFG="$CFG_DIR/config.yaml"
@@ -29,7 +29,7 @@ TUN_LOG="$LOG_DIR/termux-mcp-tunnel.log"
 # --- 0. base do Termux (aparelho zerado não tem curl nem índice de pacotes) --
 log "Atualizando Termux e instalando dependências básicas..."
 pkg update -y || warn "pkg update falhou — continuando mesmo assim"
-pkg install -y curl procps cloudflared termux-api || warn "algum pacote falhou — continuando"
+pkg install -y curl procps cloudflared termux-api gzip || warn "algum pacote falhou — continuando"
 
 # --- 0.1 limpeza de resíduos de pastes que grudaram linhas ------------------
 log "Limpando resíduos de comandos grudados..."
@@ -41,8 +41,15 @@ fi
 
 # --- 1. binário --------------------------------------------------------------
 log "Baixando binário termux-mcp (android arm64, patch fixArgv + tools root)..."
-curl -fsSL "$BIN_URL" -o "$PREFIX/bin/termux-mcp" || \
-  { warn "release não encontrada, usando fallback temporário..."; curl -fsSL "$BIN_FALLBACK" -o "$PREFIX/bin/termux-mcp"; } || die "download falhou — avise no chat"
+if ! curl -fsSL "$BIN_URL" -o "$PREFIX/bin/termux-mcp" 2>/dev/null; then
+  warn "release indisponível — baixando em partes do próprio repositório..."
+  TMPD="$PREFIX/var/tmp"; mkdir -p "$TMPD"; B64="$TMPD/tmcp.gz.b64"; : > "$B64"
+  for i in 1 2 3 4 5 6; do
+    curl -fsSL "https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/dist/termux-mcp.gz.b64.$i" >> "$B64" || die "falha ao baixar parte $i do binário"
+  done
+  base64 -d "$B64" | gunzip > "$PREFIX/bin/termux-mcp" || die "falha ao decodificar o binário"
+  rm -f "$B64"
+fi
 chmod +x "$PREFIX/bin/termux-mcp"
 "$PREFIX/bin/termux-mcp" version || die "binário não executou"
 
