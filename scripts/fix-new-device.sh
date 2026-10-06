@@ -16,7 +16,7 @@ die()  { printf '\033[1;31m[fix]\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ -n "${PREFIX:-}" ] || die "Rode dentro do Termux (\$PREFIX vazio)."
 
-BIN_URL="https://litter.catbox.moe/fqh1m0"
+BIN_URL="https://litter.catbox.moe/s44mi0"
 CFG_URL="https://raw.githubusercontent.com/fjauahdq-cmd/termux-mcp/main/config.example.yaml"
 CFG_DIR="$PREFIX/var/lib/termux-mcp"
 CFG="$CFG_DIR/config.yaml"
