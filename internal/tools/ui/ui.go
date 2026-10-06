@@ -214,14 +214,15 @@ func scaleNearest(src image.Image, newW int) image.Image {
 	return dst
 }
 
-// shotCore captures the screen, optionally downscales/re-encodes it, and
-// returns the final bytes plus a short human-readable meta line.
-func shotCore(k *kit.Kit, ctx context.Context, format string, quality, maxW int) (data []byte, mime, meta string, err error) {
+// shotCore captures the screen, optionally downscales/re-encodes it, saves a
+// copy in kit.ShotsDir (served at /shots/ over HTTP) and returns the final
+// bytes plus a short human-readable meta line.
+func shotCore(k *kit.Kit, ctx context.Context, format string, quality, maxW int) (data []byte, mime, meta, ext string, err error) {
 	if format == "" {
 		format = "jpeg"
 	}
 	if format != "jpeg" && format != "png" {
-		return nil, "", "", fmt.Errorf("format deve ser jpeg ou png")
+		return nil, "", "", "", fmt.Errorf("format deve ser jpeg ou png")
 	}
 	if quality <= 0 || quality > 100 {
 		quality = 60
@@ -229,20 +230,20 @@ func shotCore(k *kit.Kit, ctx context.Context, format string, quality, maxW int)
 
 	res, err := rootShell(k, ctx, fmt.Sprintf("%s -p %s && chmod 666 %s", sysScreencap, tmpShot, tmpShot))
 	if err != nil {
-		return nil, "", "", fmt.Errorf("su: %v (root disponível? teste: su -c id)", err)
+		return nil, "", "", "", fmt.Errorf("su: %v (root disponível? teste: su -c id)", err)
 	}
 	if res.ExitCode != 0 {
-		return nil, "", "", fmt.Errorf("screencap exited %d: %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+		return nil, "", "", "", fmt.Errorf("screencap exited %d: %s", res.ExitCode, strings.TrimSpace(res.Stderr))
 	}
 	raw, rerr := os.ReadFile(tmpShot)
 	_, _ = rootShell(k, ctx, "rm -f "+tmpShot) // best-effort cleanup (arquivo é do root)
 	if rerr != nil {
-		return nil, "", "", fmt.Errorf("read screenshot: %v", rerr)
+		return nil, "", "", "", fmt.Errorf("read screenshot: %v", rerr)
 	}
 
 	src, err := png.Decode(strings.NewReader(string(raw)))
 	if err != nil {
-		return nil, "", "", fmt.Errorf("decode png: %v", err)
+		return nil, "", "", "", fmt.Errorf("decode png: %v", err)
 	}
 	sw, sh := src.Bounds().Dx(), src.Bounds().Dy()
 	img := scaleNearest(src, maxW)
@@ -257,22 +258,34 @@ func shotCore(k *kit.Kit, ctx context.Context, format string, quality, maxW int)
 		err = png.Encode(&buf, img)
 	}
 	if err != nil {
-		return nil, "", "", fmt.Errorf("encode %s: %v", format, err)
+		return nil, "", "", "", fmt.Errorf("encode %s: %v", format, err)
 	}
 	data = buf.Bytes()
 	meta = fmt.Sprintf("screenshot %dx%d → %dx%d %s q%d (%.1f KB)", sw, sh, dw, dh, format, quality, float64(len(data))/1024)
-	return data, mime, meta, nil
+
+	ext = "jpg"
+	if format == "png" {
+		ext = "png"
+	}
+	_ = os.MkdirAll(kit.ShotsDir, 0o755)
+	if werr := os.WriteFile(kit.ShotsDir+"/latest."+ext, data, 0o644); werr != nil {
+		meta += " | falha ao salvar em " + kit.ShotsDir
+	}
+	return data, mime, meta, ext, nil
 }
 
 func takeScreenshot(k *kit.Kit) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		data, mime, meta, err := shotCore(k, ctx,
+		data, mime, meta, ext, err := shotCore(k, ctx,
 			kit.StrArg(req, "format"),
 			int(math.Round(kit.NumArg(req, "quality"))),
 			int(math.Round(kit.NumArg(req, "max_width"))),
 		)
 		if err != nil {
 			return kit.ResultError("%v", err), nil
+		}
+		if host := kit.PublicHost(ctx); host != "" {
+			meta += " | url: https://" + host + "/shots/latest." + ext
 		}
 		if out := kit.StrArg(req, "output"); out != "" {
 			if p, rerr := files.Resolve(out, files.Roots(&k.Cfg.Tools)); rerr == nil {
@@ -381,9 +394,12 @@ func actionBatch(k *kit.Kit) server.ToolHandlerFunc {
 				}
 			case "screenshot":
 				var data []byte
-				var mime, meta string
-				data, mime, meta, err = shotCore(k, ctx, str("format"), int(num("quality")), int(num("max_width")))
+				var mime, meta, ext string
+				data, mime, meta, ext, err = shotCore(k, ctx, str("format"), int(num("quality")), int(num("max_width")))
 				if err == nil {
+					if host := kit.PublicHost(ctx); host != "" {
+						meta += " | url: https://" + host + "/shots/latest." + ext
+					}
 					out = append(out,
 						mcp.NewImageContent(base64.StdEncoding.EncodeToString(data), mime),
 						mcp.NewTextContent(fmt.Sprintf("ação %d: %s", i, meta)))
