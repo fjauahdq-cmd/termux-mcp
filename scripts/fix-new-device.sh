@@ -1,8 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# fix-new-device.sh v9 — instala TUDO e deixa rodando em background:
+# fix-new-device.sh v10 — instala TUDO e deixa rodando em background:
 #   * binário com patch fixArgv (bug do termux-exec) + tools via root
 #   * config com tools liberadas e auth.require=false (sem token obrigatório)
 #   * servidor HTTP (127.0.0.1:3000) + tunnel cloudflared subindo sozinhos
+#   * kill robusto de instâncias antigas + health check de verdade
 #   * URL pública impressa no final
 #
 # Uso (uma linha só, dentro do Termux):
@@ -61,18 +62,34 @@ log "Gerando token (fica salvo no config, uso opcional):"
 mkdir -p "$LOG_DIR"
 command -v pkill >/dev/null 2>&1 || pkg install -y procps >/dev/null 2>&1 || true
 log "Parando instâncias antigas (se houver)..."
-pkill -f 'termux-mcp serve' 2>/dev/null || true
-pkill -f 'termux-mcp tunnel' 2>/dev/null || true
-sleep 1
+# ATENÇÃO: o bug do termux-exec duplica o caminho no cmdline do processo
+# ("termux-mcp /data/.../termux-mcp serve http ..."), então padrões como
+# 'termux-mcp serve' NÃO casam. Mata qualquer processo termux-mcp:
+pkill -f 'termux-mcp' 2>/dev/null || true
+# espera a porta 3000 liberar de verdade (até 10s)
+for i in $(seq 1 10); do
+  if curl -s -o /dev/null --max-time 2 http://127.0.0.1:3000/health; then
+    sleep 1
+  else
+    break
+  fi
+done
 
 log "Subindo servidor HTTP em background (127.0.0.1:3000)..."
 : > "$SRV_LOG"; : > "$TUN_LOG"
 nohup "$PREFIX/bin/termux-mcp" serve http --config "$CFG" </dev/null >>"$SRV_LOG" 2>&1 &
-sleep 2
-if grep -q 'http server listening' "$SRV_LOG" 2>/dev/null; then
-  log "servidor OK"
+
+# confirma DE VERDADE com /health (o log diz "listening" antes mesmo do bind)
+OK=""
+for i in $(seq 1 10); do
+  sleep 1
+  if curl -s -o /dev/null --max-time 2 http://127.0.0.1:3000/health; then OK=1; break; fi
+done
+if [ -n "$OK" ]; then
+  log "servidor OK (health 200)"
 else
-  warn "servidor não confirmou escuta — veja: cat $SRV_LOG"
+  warn "servidor NÃO respondeu — últimas linhas do log:"
+  tail -5 "$SRV_LOG" || true
 fi
 
 log "Subindo tunnel cloudflared em background..."
