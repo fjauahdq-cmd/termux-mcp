@@ -42,6 +42,8 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.LUTC)
 
+	fixArgv()
+
 	if len(os.Args) < 2 {
 		runServe("stdio", "")
 		return
@@ -102,6 +104,21 @@ func main() {
 
 	default:
 		usage()
+	}
+}
+
+// fixArgv works around the termux-exec bug (termux-app issue 4630) present in
+// Play Store and modded Termux builds, where a Go program receives its own
+// executable path as an extra os.Args[1], breaking subcommand parsing.
+func fixArgv() {
+	if len(os.Args) < 2 {
+		return
+	}
+	a1 := os.Args[1]
+	exe, _ := os.Executable()
+	if a1 == os.Args[0] || (exe != "" && a1 == exe) ||
+		(filepath.IsAbs(a1) && filepath.Base(a1) == filepath.Base(os.Args[0])) {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
 	}
 }
 
