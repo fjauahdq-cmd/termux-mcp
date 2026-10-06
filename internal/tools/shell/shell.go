@@ -21,8 +21,10 @@ const shellTimeout = 15 * time.Second
 func All(k *kit.Kit) []registry.Tool {
 	return []registry.Tool{
 		{Def: mcp.NewTool("execute_command",
-			mcp.WithDescription("Start a shell command as a detached background task and return its task ID immediately. Stream its live output with the terminal stream endpoint or inspect it with task_status and task_log."),
+			mcp.WithDescription("Run a shell command. With wait=true (recommended for AI agents), runs synchronously and returns stdout/stderr/exit_code immediately. With wait=false (default), starts a detached background task; inspect it with task_status and task_log."),
 			mcp.WithString("command", mcp.Required(), mcp.Description("Shell command to run")),
+			mcp.WithBoolean("wait", mcp.Description("true = synchronous, returns output directly; false (default) = background task")),
+			mcp.WithNumber("timeout", mcp.Description("Timeout in seconds when wait=true (default: exec.default_timeout_seconds)"), mcp.Min(0)),
 			mcp.WithString("workdir", mcp.Description("Working directory for the command (default: the server's home)"))),
 			Handler: execute(k),
 			Meta:    registry.Meta{Module: "shell", Tier: registry.TierSafe, Timeout: shellTimeout}},
@@ -43,6 +45,20 @@ func execute(k *kit.Kit) server.ToolHandlerFunc {
 		}
 		if !Allowed(cmd, &k.Cfg.Exec) {
 			return kit.ResultError("command rejected by shell allow/deny policy"), nil
+		}
+		if kit.BoolArg(req, "wait") {
+			to := time.Duration(kit.NumArg(req, "timeout")) * time.Second
+			res, err := k.Run(ctx, "sh", []string{"-c", cmd}, to)
+			if err != nil {
+				return kit.ResultError("%v", err), nil
+			}
+			return kit.ResultJSON(map[string]any{
+				"exit_code":   res.ExitCode,
+				"stdout":      res.Stdout,
+				"stderr":      res.Stderr,
+				"timed_out":   res.TimedOut,
+				"duration_ms": res.Duration.Milliseconds(),
+			}), nil
 		}
 		info, err := k.Tasks.Start(cmd, kit.StrArg(req, "workdir"))
 		if err != nil {
